@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Notes - AdaptQuiz</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = { darkMode: 'class', theme: { extend: { colors: { primary: '#4f46e5', dark: '#111827' } } } }
+    </script>
+</head>
+<body class="bg-gray-50 text-gray-900 dark:bg-dark dark:text-gray-100 transition-colors duration-200">
+    <div id="navbar-container"></div>
+    <div id="sidebar-container"></div>
+
+    <main class="md:ml-64 pt-6 px-6">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-bold">My Notes Library</h1>
+            <a href="upload.html" class="px-4 py-2 bg-primary text-white rounded-md shadow hover:bg-indigo-600 transition">+ Upload New Note</a>
+        </div>
+        
+        <div class="bg-white dark:bg-gray-800 rounded-xl shadow overflow-hidden">
+            <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                <thead class="bg-gray-50 dark:bg-gray-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Title</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date Added</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="notes-list" class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                    <!-- Injected via JS -->
+                    <tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">Loading notes...</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </main>
+
+    <script type="module" src="/src/js/components.js"></script>
+    <script>
+        async function fetchNotes() {
+            const token = localStorage.getItem('access_token');
+            if(!token) { window.location.href = '/src/pages/auth/login.html'; return; }
+
+            try {
+                const response = await fetch('/api/v1/notes/', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                
+                if (response.ok) {
+                    const notes = await response.json();
+                    const tbody = document.getElementById('notes-list');
+                    if(notes.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-gray-500">No notes found. Upload one to get started!</td></tr>';
+                        return;
+                    }
+                    
+                    let html = '';
+                    notes.forEach(note => {
+                        const statusColor = note.status === 'PROCESSED' ? 'text-green-500' : (note.status === 'FAILED' ? 'text-red-500' : 'text-yellow-500');
+                        html += `
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap font-medium">${note.title}</td>
+                                <td class="px-6 py-4 whitespace-nowrap"><span class="px-2 py-1 bg-gray-100 dark:bg-gray-600 rounded text-xs">${note.file_type.toUpperCase()}</span></td>
+                                <td class="px-6 py-4 whitespace-nowrap font-bold ${statusColor}">${note.status}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-gray-500">${new Date(note.created_at).toLocaleDateString()}</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                    <button onclick="generateQuiz(${note.id})" class="text-primary hover:text-indigo-900 mr-3" ${note.status !== 'PROCESSED' ? 'disabled style="opacity:0.5"' : ''}>Generate Quiz</button>
+                                </td>
+                            </tr>
+                        `;
+                    });
+                    tbody.innerHTML = html;
+                }
+            } catch (err) {
+                document.getElementById('notes-list').innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center text-red-500">Error loading notes.</td></tr>';
+            }
+        }
+
+        window.generateQuiz = function(noteId) {
+            window.location.href = `/src/pages/quiz/generate.html?note_id=${noteId}`;
+        }
+
+        document.addEventListener('DOMContentLoaded', fetchNotes);
+    </script>
+</body>
+</html>
